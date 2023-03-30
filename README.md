@@ -1,5 +1,5 @@
 <div align=center>
-    [Cornucopia](https://user-images.githubusercontent.com/36140389/228953999-995b7818-baee-465b-a152-6b7e46ac4399.png)
+    <img src="https://user-images.githubusercontent.com/36140389/228953999-995b7818-baee-465b-a152-6b7e46ac4399.png">
 </div>
 
 ## Synopsis
