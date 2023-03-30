@@ -142,7 +142,7 @@ and would undermine performance).
 ### Present API Augmentations
 
 For a comprehensive understanding of API augmentations, kindly peruse
-PROJECT_DESCRIPTION.md.
+[PROJECT_DESCRIPTION.md](PROJECT_DESCRIPTION.md).
 
 RegionScheduler, AsyncScheduler, GlobalRegionScheduler, and EntityScheduler
 supplant the BukkitScheduler.
