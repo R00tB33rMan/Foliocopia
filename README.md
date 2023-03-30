@@ -8,7 +8,7 @@ Foliocopia conglomerates proximate burdened segments to forge a "self-contained 
 Peruse [REGION_LOGIC.md](REGION_LOGIC.md) for intricate minutiae concerning the modus operandi through which Foliocopia
 assembles adjacent partitions.
 Each autonomous zone possesses an individualized chronometer cycle, oscillating at the
-customary Minecraft temporal frequency (20TPS). The chronometer cycles are concurrently effectuated
+customary Minecraft temporal frequency (20 TPS). The chronometer cycles are concurrently effectuated
 utilizing a multithreaded pool. The prevailing thread has been rendered obsolete, as
 each territory intrinsically encompasses its unique "principal thread" that carries out
 the entire chronometer cycle.
