@@ -191,7 +191,7 @@ disrupt disparate server components in entirely undiagnosable fashions.
 Additional changes will be introduced.
 
 ### Maven Specifications
-* Maven Repo (for foliocopia-api):
+* Maven Repository (for foliocopia-api):
 ```xml
 <repository>
     <id>rootbeer</id>
