@@ -36,9 +36,7 @@ The ideal scenario entails a minimum of 16 processing cores (excluding threads).
 Initially, it is advisable to pre-generate the world, significantly diminishing the
 necessity for chunk system worker threads.
 
-## The subsequent enumeration is a remarkably approximate estimation derived from the trials
-conducted prior to Foliocopia's test server deployment, accommodating approximately 330 players at its zenith. As such, it is not precise and warrants additional refinement –
-consider it a foundational reference point.
+The subsequent enumeration is a remarkably approximate estimation derived from the trials conducted prior to Foliocopia's test server deployment, accommodating approximately 330 players at its zenith. As such, it is not precise and warrants additional refinement – consider it a foundational reference point.
 
 The total core enumeration of the apparatus should be
 evaluated. Subsequently, apportion threads for:
