@@ -144,9 +144,9 @@ and would undermine performance).
 For a comprehensive understanding of API augmentations, kindly peruse
 [PROJECT_DESCRIPTION.md](PROJECT_DESCRIPTION.md).
 
-RegionScheduler, AsyncScheduler, GlobalRegionScheduler, and EntityScheduler
+- RegionScheduler, AsyncScheduler, GlobalRegionScheduler, and EntityScheduler
 supplant the BukkitScheduler.
-The entity scheduler can be obtained via Entity#getScheduler, while
+- The entity scheduler can be obtained via Entity#getScheduler, while
 the remaining schedulers are retrievable from the Bukkit/Server classes.
 Bukkit#isOwnedByCurrentRegion examines if the presently ticking region
 possesses specific positions/entities.
