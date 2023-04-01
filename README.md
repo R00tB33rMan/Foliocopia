@@ -2,6 +2,10 @@
     <img src="https://user-images.githubusercontent.com/36140389/228953999-995b7818-baee-465b-a152-6b7e46ac4399.png">
 </div>
 
+TLDR (too long, didn't read) & WTHITE (what the heck is this English)
+
+This is a technical document that describes Foliocopia, a system designed for Minecraft servers that optimizes server performance. It explains that Foliocopia conglomerates burdened segments to create a self-contained territory that has its own chronometer cycle. It then goes on to answer some frequently asked questions regarding Foliocopia, such as which server classifications can reap advantages from it, upon which hardware shall Foliocopia optimally function, and what is the optimal methodology for configuring Foliocopia. It also describes the plugin conformity and API stratagems and provides some novel guidelines for Foliocopia.
+
 ## Synopsis
 
 Foliocopia conglomerates proximate burdened segments to forge a "self-contained territory."
