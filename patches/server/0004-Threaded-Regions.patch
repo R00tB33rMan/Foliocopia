@@ -921,15 +921,16 @@ index 1e98f778ffa0a7bb00ebccaaa8bde075183e41f0..aebe82cbe8bc20e5f4260a871d7b620e
       */
 diff --git a/src/main/java/ca/spottedleaf/concurrentutil/scheduler/SchedulerThreadPool.java b/src/main/java/ca/spottedleaf/concurrentutil/scheduler/SchedulerThreadPool.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..f579ad58ea7db20d6d7b89abbab3a4dfadaaeaee
+index 0000000000000000000000000000000000000000..0ce825d7af2a1dbeac5c22640534ee1901edce20
 --- /dev/null
 +++ b/src/main/java/ca/spottedleaf/concurrentutil/scheduler/SchedulerThreadPool.java
-@@ -0,0 +1,534 @@
+@@ -0,0 +1,543 @@
 +package ca.spottedleaf.concurrentutil.scheduler;
 +
 +import ca.spottedleaf.concurrentutil.util.ConcurrentUtil;
 +import ca.spottedleaf.concurrentutil.util.TimeUtil;
 +import com.mojang.logging.LogUtils;
++import io.papermc.paper.util.TraceUtil;
 +import io.papermc.paper.util.set.LinkedSortedSet;
 +import org.slf4j.Logger;
 +import java.lang.invoke.VarHandle;
@@ -1029,6 +1030,14 @@ index 0000000000000000000000000000000000000000..f579ad58ea7db20d6d7b89abbab3a4df
 +        }
 +
 +        return true;
++    }
++
++    public void dumpAliveThreadTraces(final String reason) {
++        for (final Thread thread : this.threads) {
++            if (thread.isAlive()) {
++                TraceUtil.dumpTraceForThread(thread, reason);
++            }
++        }
 +    }
 +
 +    /**
@@ -3626,10 +3635,10 @@ index 0000000000000000000000000000000000000000..d9687722e02dfd4088c7030abbf5008e
 +}
 diff --git a/src/main/java/io/papermc/paper/threadedregions/RegionShutdownThread.java b/src/main/java/io/papermc/paper/threadedregions/RegionShutdownThread.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..6c288d1db81c4d6f574674889a98553baf9b86ee
+index 0000000000000000000000000000000000000000..1bfda654d7cb79504058b591d460bfef79f0c951
 --- /dev/null
 +++ b/src/main/java/io/papermc/paper/threadedregions/RegionShutdownThread.java
-@@ -0,0 +1,174 @@
+@@ -0,0 +1,175 @@
 +package io.papermc.paper.threadedregions;
 +
 +import com.mojang.logging.LogUtils;
@@ -3762,6 +3771,7 @@ index 0000000000000000000000000000000000000000..6c288d1db81c4d6f574674889a98553b
 +            LOGGER.info("Scheduler halted");
 +        } else {
 +            LOGGER.warn("Scheduler did not terminate within 60s, proceeding with shutdown anyways");
++            TickRegions.getScheduler().dumpAliveThreadTraces("Did not shut down in time");
 +        }
 +
 +        MinecraftServer.getServer().stopServer(); // stop part 1: most logic, kicking players, plugins, etc
@@ -7631,10 +7641,10 @@ index 0000000000000000000000000000000000000000..29f9fed5f02530b3256e6b993e607d46
 +}
 diff --git a/src/main/java/io/papermc/paper/threadedregions/TickRegionScheduler.java b/src/main/java/io/papermc/paper/threadedregions/TickRegionScheduler.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..3f14eda409ca49095dc43796868435b705c36ce4
+index 0000000000000000000000000000000000000000..9a729994cc7d51d5e5fcb78e32d3a97d39d04611
 --- /dev/null
 +++ b/src/main/java/io/papermc/paper/threadedregions/TickRegionScheduler.java
-@@ -0,0 +1,559 @@
+@@ -0,0 +1,563 @@
 +package io.papermc.paper.threadedregions;
 +
 +import ca.spottedleaf.concurrentutil.scheduler.SchedulerThreadPool;
@@ -7789,6 +7799,10 @@ index 0000000000000000000000000000000000000000..3f14eda409ca49095dc43796868435b7
 +
 +    public boolean halt(final boolean sync, final long maxWaitNS) {
 +        return this.scheduler.halt(sync, maxWaitNS);
++    }
++
++    void dumpAliveThreadTraces(final String reason) {
++        this.scheduler.dumpAliveThreadTraces(reason);
 +    }
 +
 +    public void setHasTasks(final RegionScheduleHandle region) {
@@ -12602,10 +12616,10 @@ index 959b82e38f3442a6b19a1f9d7615b6ddab967819..6633e7a3946e06438633a3a6276c6eaa
          }
  
 diff --git a/src/main/java/net/minecraft/server/commands/EnchantCommand.java b/src/main/java/net/minecraft/server/commands/EnchantCommand.java
-index e639c0ec642910e66b1d68ae0b9208ef58d91fce..9ad71bda2f7498ad6e0853a1070c5be2d8016548 100644
+index e639c0ec642910e66b1d68ae0b9208ef58d91fce..abe7463f1e87449d65870955e58f257d4b8168c1 100644
 --- a/src/main/java/net/minecraft/server/commands/EnchantCommand.java
 +++ b/src/main/java/net/minecraft/server/commands/EnchantCommand.java
-@@ -46,6 +46,12 @@ public class EnchantCommand {
+@@ -46,43 +46,69 @@ public class EnchantCommand {
          })))));
      }
  
@@ -12618,7 +12632,12 @@ index e639c0ec642910e66b1d68ae0b9208ef58d91fce..9ad71bda2f7498ad6e0853a1070c5be2
      private static int enchant(CommandSourceStack source, Collection<? extends Entity> targets, Holder<Enchantment> enchantment, int level) throws CommandSyntaxException {
          Enchantment enchantment2 = enchantment.value();
          if (level > enchantment2.getMaxLevel()) {
-@@ -55,18 +61,26 @@ public class EnchantCommand {
+             throw ERROR_LEVEL_TOO_HIGH.create(level, enchantment2.getMaxLevel());
+         } else {
+-            int i = 0;
++            final java.util.concurrent.atomic.AtomicInteger changed = new java.util.concurrent.atomic.AtomicInteger(0); // Folia - region threading
++            final java.util.concurrent.atomic.AtomicInteger count = new java.util.concurrent.atomic.AtomicInteger(targets.size()); // Folia - region threading
++            final java.util.concurrent.atomic.AtomicReference<Component> possibleSingleDisplayName = new java.util.concurrent.atomic.AtomicReference<>(); // Folia - region threading
  
              for(Entity entity : targets) {
                  if (entity instanceof LivingEntity) {
@@ -12638,24 +12657,57 @@ index e639c0ec642910e66b1d68ae0b9208ef58d91fce..9ad71bda2f7498ad6e0853a1070c5be2
 +                            if (!itemStack.isEmpty()) {
 +                                if (enchantment2.canEnchant(itemStack) && EnchantmentHelper.isEnchantmentCompatible(EnchantmentHelper.getEnchantments(itemStack).keySet(), enchantment2)) {
 +                                    itemStack.enchant(enchantment2, level);
++                                    possibleSingleDisplayName.set(livingEntity.getDisplayName());
++                                    changed.incrementAndGet();
 +                                } else if (targets.size() == 1) {
 +                                    throw ERROR_INCOMPATIBLE.create(itemStack.getItem().getName(itemStack).getString());
 +                                }
 +                            } else if (targets.size() == 1) {
 +                                throw ERROR_NO_ITEM.create(livingEntity.getName().getString());
 +                            }
-+                        } catch (CommandSyntaxException ex) {
-+                            sendMessage(source, ex);
++                        } catch (final CommandSyntaxException exception) {
++                            sendMessage(source, exception);
++                            return; // don't send feedback twice
                          }
 -                    } else if (targets.size() == 1) {
 -                        throw ERROR_NO_ITEM.create(livingEntity.getName().getString());
 -                    }
-+                    }, null, 1L);
-+                    ++i;
-+                    // Folia end - region threading
++                        sendFeedback(source, enchantment2, level, possibleSingleDisplayName, count, changed);
++                    }, ignored -> sendFeedback(source, enchantment2, level, possibleSingleDisplayName, count, changed), 1L);
                  } else if (targets.size() == 1) {
                      throw ERROR_NOT_LIVING_ENTITY.create(entity.getName().getString());
++                } else {
++                    sendFeedback(source, enchantment2, level, possibleSingleDisplayName, count, changed);
++                    // Folia end - region threading
                  }
+             }
+-
++            return targets.size(); // Folia - region threading
++        }
++    }
++    // Folia start - region threading
++    private static void sendFeedback(final CommandSourceStack source, final Enchantment enchantment2, final int level, final java.util.concurrent.atomic.AtomicReference<Component> possibleSingleDisplayName, final java.util.concurrent.atomic.AtomicInteger count, final java.util.concurrent.atomic.AtomicInteger changed) {
++        if (count.decrementAndGet() == 0) {
++            final int i = changed.get();
+             if (i == 0) {
+-                throw ERROR_NOTHING_HAPPENED.create();
++                sendMessage(source, ERROR_NOTHING_HAPPENED.create());
+             } else {
+-                if (targets.size() == 1) {
+-                    source.sendSuccess(Component.translatable("commands.enchant.success.single", enchantment2.getFullname(level), targets.iterator().next().getDisplayName()), true);
++                if (i == 1) {
++                    source.sendSuccess(Component.translatable("commands.enchant.success.single", enchantment2.getFullname(level), possibleSingleDisplayName.get()), true);
+                 } else {
+-                    source.sendSuccess(Component.translatable("commands.enchant.success.multiple", enchantment2.getFullname(level), targets.size()), true);
++                    source.sendSuccess(Component.translatable("commands.enchant.success.multiple", enchantment2.getFullname(level), i), true);
+                 }
+-
+-                return i;
+             }
+         }
+     }
++    // Folia end - region threading
+ }
 diff --git a/src/main/java/net/minecraft/server/commands/ExperienceCommand.java b/src/main/java/net/minecraft/server/commands/ExperienceCommand.java
 index a628e3730b1c26c2e6a85c449440af0afe4c0d8d..6651376603c3fb2331ae0955343285ac7c37726f 100644
 --- a/src/main/java/net/minecraft/server/commands/ExperienceCommand.java
@@ -16617,7 +16669,7 @@ index 44d99e89226adb6234b9405f25ac9dab9bd84297..072634e26d32ca0b3438a5d3a03be367
                  Collections.shuffle( this.connections );
              }
 diff --git a/src/main/java/net/minecraft/server/network/ServerGamePacketListenerImpl.java b/src/main/java/net/minecraft/server/network/ServerGamePacketListenerImpl.java
-index d587b2c4e39bce7e098aa9fab361230f72770658..85116d9a4538404bb7d5cbd8893637581132746a 100644
+index d587b2c4e39bce7e098aa9fab361230f72770658..0243b6cd61c96656e61fce7d9f85fbf859c2f04d 100644
 --- a/src/main/java/net/minecraft/server/network/ServerGamePacketListenerImpl.java
 +++ b/src/main/java/net/minecraft/server/network/ServerGamePacketListenerImpl.java
 @@ -322,10 +322,10 @@ public class ServerGamePacketListenerImpl implements ServerPlayerConnection, Tic
@@ -16767,6 +16819,15 @@ index d587b2c4e39bce7e098aa9fab361230f72770658..85116d9a4538404bb7d5cbd889363758
  
                  ++this.receivedMovePacketCount;
                  int i = this.receivedMovePacketCount - this.knownMovePacketCount;
+@@ -750,7 +764,7 @@ public class ServerGamePacketListenerImpl implements ServerPlayerConnection, Tic
+                         // there to avoid any 'Moved wrongly' or 'Moved too quickly' errors.
+                         // We only do this if the Event was not cancelled.
+                         if (!oldTo.equals(event.getTo()) && !event.isCancelled()) {
+-                            this.player.getBukkitEntity().teleport(event.getTo(), PlayerTeleportEvent.TeleportCause.PLUGIN);
++                            this.player.getBukkitEntity().teleportAsync(event.getTo(), PlayerTeleportEvent.TeleportCause.PLUGIN); // Folia - region threading
+                             return;
+                         }
+ 
 @@ -866,13 +880,13 @@ public class ServerGamePacketListenerImpl implements ServerPlayerConnection, Tic
          // PacketUtils.ensureRunningOnSameThread(packet, this, this.player.getLevel()); // Paper - run this async
          // CraftBukkit start
@@ -16845,6 +16906,15 @@ index d587b2c4e39bce7e098aa9fab361230f72770658..85116d9a4538404bb7d5cbd889363758
  
                              if (i > Math.max(this.allowedPlayerTicks, 5)) {
                                  ServerGamePacketListenerImpl.LOGGER.debug("{} is sending move packets too frequently ({} packets since last tick)", this.player.getName().getString(), i);
+@@ -1604,7 +1619,7 @@ public class ServerGamePacketListenerImpl implements ServerPlayerConnection, Tic
+                                         // there to avoid any 'Moved wrongly' or 'Moved too quickly' errors.
+                                         // We only do this if the Event was not cancelled.
+                                         if (!oldTo.equals(event.getTo()) && !event.isCancelled()) {
+-                                            this.player.getBukkitEntity().teleport(event.getTo(), PlayerTeleportEvent.TeleportCause.PLUGIN);
++                                            this.player.getBukkitEntity().teleportAsync(event.getTo(), PlayerTeleportEvent.TeleportCause.PLUGIN); // Folia - region threading
+                                             return;
+                                         }
+ 
 @@ -1819,9 +1834,9 @@ public class ServerGamePacketListenerImpl implements ServerPlayerConnection, Tic
                  if (!this.player.isSpectator()) {
                      // limit how quickly items can be dropped
@@ -17710,7 +17780,7 @@ index 93a1e990b0a6caae4143c2f9d09bfb368fa1d6db..ad3166481dd37f4b5380f8bf28653bb4
  
                  itemstack = entityliving2.getMainHandItem();
 diff --git a/src/main/java/net/minecraft/world/entity/Entity.java b/src/main/java/net/minecraft/world/entity/Entity.java
-index 4705d7066207250c03a5f98eef61554c901f2e35..17b3c16008d801fa61cb3e7d89f31a4e0c166ac7 100644
+index 4705d7066207250c03a5f98eef61554c901f2e35..f2d5603c6d0b3f7aa4b8f8da2c551278e4a4b091 100644
 --- a/src/main/java/net/minecraft/world/entity/Entity.java
 +++ b/src/main/java/net/minecraft/world/entity/Entity.java
 @@ -165,7 +165,7 @@ public abstract class Entity implements Nameable, EntityAccess, CommandSource {
@@ -18143,7 +18213,7 @@ index 4705d7066207250c03a5f98eef61554c901f2e35..17b3c16008d801fa61cb3e7d89f31a4e
 +    }
 +
 +    protected boolean canTeleportAsync() {
-+        return !this.isRemoved() && this.isAlive() && (!(this instanceof net.minecraft.world.entity.LivingEntity livingEntity) || !livingEntity.isSleeping());
++        return !this.hasNullCallback() && !this.isRemoved() && this.isAlive() && (!(this instanceof net.minecraft.world.entity.LivingEntity livingEntity) || !livingEntity.isSleeping());
 +    }
 +
 +    protected void teleportSyncSameRegion(Vec3 pos, Float yaw, Float pitch, Vec3 speedDirectionUpdate) {
@@ -18734,7 +18804,7 @@ index 4705d7066207250c03a5f98eef61554c901f2e35..17b3c16008d801fa61cb3e7d89f31a4e
      public void unsetRemoved() {
          this.removalReason = null;
 diff --git a/src/main/java/net/minecraft/world/entity/LivingEntity.java b/src/main/java/net/minecraft/world/entity/LivingEntity.java
-index dcfb71b5a53df789e366fea2080921d677549a2e..485e5c3f1348f9e79f48f6ec3fad34fa58dcfe73 100644
+index dcfb71b5a53df789e366fea2080921d677549a2e..4f8062432cfe6480664e674fde0255f07b15c73a 100644
 --- a/src/main/java/net/minecraft/world/entity/LivingEntity.java
 +++ b/src/main/java/net/minecraft/world/entity/LivingEntity.java
 @@ -464,7 +464,7 @@ public abstract class LivingEntity extends Entity implements Attackable {
@@ -18775,6 +18845,15 @@ index dcfb71b5a53df789e366fea2080921d677549a2e..485e5c3f1348f9e79f48f6ec3fad34fa
              String s = nbt.getString("Team");
              PlayerTeam scoreboardteam = this.level.getScoreboard().getPlayerTeam(s);
              if (!level.paperConfig().scoreboards.allowNonPlayerEntitiesOnScoreboards && !(this instanceof net.minecraft.world.entity.player.Player)) { scoreboardteam = null; } // Paper
+@@ -1117,7 +1120,7 @@ public abstract class LivingEntity extends Entity implements Attackable {
+     }
+ 
+     public boolean addEffect(MobEffectInstance mobeffect, @Nullable Entity entity, EntityPotionEffectEvent.Cause cause) {
+-        org.spigotmc.AsyncCatcher.catchOp("effect add"); // Spigot
++        io.papermc.paper.util.TickThread.ensureTickThread(this, "Cannot add effects to entities asynchronously"); // Folia - region threading
+         if (this.isTickingEffects) {
+             this.effectsToProcess.add(new ProcessableEffect(mobeffect, cause));
+             return true;
 @@ -2266,7 +2269,7 @@ public abstract class LivingEntity extends Entity implements Attackable {
  
      @Nullable
@@ -20054,6 +20133,22 @@ index fabce3bc592b1b172b227395a07febdbb66ec3c9..ebdbadc1dba41f47ba4795ea43020b80
              double d1 = raid1.getCenter().distSqr(pos);
  
              if (raid1.isActive() && d1 < d0) {
+diff --git a/src/main/java/net/minecraft/world/entity/vehicle/MinecartCommandBlock.java b/src/main/java/net/minecraft/world/entity/vehicle/MinecartCommandBlock.java
+index 1fe630118981b02092054af3c5c6227a889ee3c2..57ecc5e506c895fe701cb24c9b503d6009602a26 100644
+--- a/src/main/java/net/minecraft/world/entity/vehicle/MinecartCommandBlock.java
++++ b/src/main/java/net/minecraft/world/entity/vehicle/MinecartCommandBlock.java
+@@ -145,5 +145,11 @@ public class MinecartCommandBlock extends AbstractMinecart {
+             return (org.bukkit.craftbukkit.entity.CraftMinecartCommand) MinecartCommandBlock.this.getBukkitEntity();
+         }
+         // CraftBukkit end
++        // Folia start
++        @Override
++        public void threadCheck() {
++            io.papermc.paper.util.TickThread.ensureTickThread(MinecartCommandBlock.this, "Asynchronous sendSystemMessage to a command block");
++        }
++        // Folia end
+     }
+ }
 diff --git a/src/main/java/net/minecraft/world/entity/vehicle/MinecartHopper.java b/src/main/java/net/minecraft/world/entity/vehicle/MinecartHopper.java
 index 1b8f22805af87dc08e0dea9fd93a5f93c0b05107..00bc99948ddd67bb85c3797f869064540a8b1213 100644
 --- a/src/main/java/net/minecraft/world/entity/vehicle/MinecartHopper.java
@@ -20261,7 +20356,7 @@ index c6d2f764efa9b8bec730bbe757d480e365b25ccc..af9313a3b3aaa0af4f2a2f4fb2424dc3
              }
  
 diff --git a/src/main/java/net/minecraft/world/level/BaseCommandBlock.java b/src/main/java/net/minecraft/world/level/BaseCommandBlock.java
-index 888936385196a178ab8b730fd5e4fff4a5466428..df4632a6ddef8744df160163c99bdcdd6225dd97 100644
+index 888936385196a178ab8b730fd5e4fff4a5466428..7f09f2864c73c8e144475f2168e4a9d9b8aa4642 100644
 --- a/src/main/java/net/minecraft/world/level/BaseCommandBlock.java
 +++ b/src/main/java/net/minecraft/world/level/BaseCommandBlock.java
 @@ -111,6 +111,7 @@ public abstract class BaseCommandBlock implements CommandSource {
@@ -20272,6 +20367,20 @@ index 888936385196a178ab8b730fd5e4fff4a5466428..df4632a6ddef8744df160163c99bdcdd
          if (!world.isClientSide && world.getGameTime() != this.lastExecution) {
              if ("Searge".equalsIgnoreCase(this.command)) {
                  this.lastOutput = Component.literal("#itzlipofutzli");
+@@ -169,10 +170,12 @@ public abstract class BaseCommandBlock implements CommandSource {
+ 
+     }
+ 
++    public void threadCheck() {} // Folia
++
+     @Override
+     public void sendSystemMessage(Component message) {
+         if (this.trackOutput) {
+-            org.spigotmc.AsyncCatcher.catchOp("sendSystemMessage to a command block"); // Paper
++            this.threadCheck(); // Folia
+             SimpleDateFormat simpledateformat = BaseCommandBlock.TIME_FORMAT;
+             Date date = new Date();
+ 
 diff --git a/src/main/java/net/minecraft/world/level/EntityGetter.java b/src/main/java/net/minecraft/world/level/EntityGetter.java
 index 3b959f42d958bf0f426853aee56753d6c455fcdb..b1a6a66ed02706c1adc36dcedfa415f5a24a25a0 100644
 --- a/src/main/java/net/minecraft/world/level/EntityGetter.java
@@ -21562,6 +21671,23 @@ index c57efcb9a79337ec791e4e8f6671612f0a82b441..526d1bfd5ad0de7bcfd0c2da902515f3
              boolean flag2 = blockEntity.brewTime <= 0; // == -> <=
              // CraftBukkit end
  
+diff --git a/src/main/java/net/minecraft/world/level/block/entity/CommandBlockEntity.java b/src/main/java/net/minecraft/world/level/block/entity/CommandBlockEntity.java
+index a33d98a3ab2d00256e3c85b3de3680b4765df8d3..b311d150b0e4f1e36ba22042b02d8acd2cd5ce8c 100644
+--- a/src/main/java/net/minecraft/world/level/block/entity/CommandBlockEntity.java
++++ b/src/main/java/net/minecraft/world/level/block/entity/CommandBlockEntity.java
+@@ -56,6 +56,12 @@ public class CommandBlockEntity extends BlockEntity {
+ 
+             return new CommandSourceStack(this, Vec3.atCenterOf(CommandBlockEntity.this.worldPosition), new Vec2(0.0F, enumdirection.toYRot()), this.getLevel(), 2, this.getName().getString(), this.getName(), this.getLevel().getServer(), (Entity) null);
+         }
++        // Folia start
++        @Override
++        public void threadCheck() {
++            io.papermc.paper.util.TickThread.ensureTickThread((ServerLevel) CommandBlockEntity.this.level, CommandBlockEntity.this.worldPosition, "Asynchronous sendSystemMessage to a command block");
++        }
++        // Folia end
+     };
+ 
+     public CommandBlockEntity(BlockPos pos, BlockState state) {
 diff --git a/src/main/java/net/minecraft/world/level/block/entity/ConduitBlockEntity.java b/src/main/java/net/minecraft/world/level/block/entity/ConduitBlockEntity.java
 index 963a596154091b79ca139af6274aa323518ad1ad..57b11cb78270a8094f772da497ad3264a0a67db1 100644
 --- a/src/main/java/net/minecraft/world/level/block/entity/ConduitBlockEntity.java
@@ -24016,7 +24142,7 @@ index cd4ad8261e56365850068db1d83d6a8454026737..78f7e72f2912dae503c2dab7d1992b65
              List<String> offers = waitable.get();
              if (offers == null) {
 diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java
-index 57a0dbb23a32123d30c3b3572f4d129be9d97847..3f46d9398add0e97a2b8b072f66b48b0e056d023 100644
+index 57a0dbb23a32123d30c3b3572f4d129be9d97847..b7b00aeadea76531d495e0478e09d3496677268c 100644
 --- a/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java
 +++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java
 @@ -203,6 +203,16 @@ public abstract class CraftEntity implements org.bukkit.entity.Entity {
@@ -24057,7 +24183,7 @@ index 57a0dbb23a32123d30c3b3572f4d129be9d97847..3f46d9398add0e97a2b8b072f66b48b0
  
          if (entityTracker == null) {
              return;
-@@ -1308,30 +1323,38 @@ public abstract class CraftEntity implements org.bukkit.entity.Entity {
+@@ -1308,30 +1323,43 @@ public abstract class CraftEntity implements org.bukkit.entity.Entity {
          Preconditions.checkArgument(location != null, "location");
          location.checkFinite();
          Location locationClone = location.clone(); // clone so we don't need to worry about mutations after this call.
@@ -24078,27 +24204,33 @@ index 57a0dbb23a32123d30c3b3572f4d129be9d97847..3f46d9398add0e97a2b8b072f66b48b0
 -                } catch (Throwable throwable) {
 -                    if (throwable instanceof ThreadDeath) {
 -                        throw (ThreadDeath)throwable;
-+        boolean scheduled = this.taskScheduler.schedule(
-+            // success
-+            (Entity nmsEntity) -> {
-+                boolean success = nmsEntity.teleportAsync(
-+                    ((CraftWorld)locationClone.getWorld()).getHandle(),
-+                    new net.minecraft.world.phys.Vec3(locationClone.getX(), locationClone.getY(), locationClone.getZ()),
-+                    null, null, net.minecraft.world.phys.Vec3.ZERO,
-+                    cause == null ? TeleportCause.UNKNOWN : cause,
-+                    Entity.TELEPORT_FLAG_LOAD_CHUNK,
-+                    (Entity entityTp) -> {
-+                        ret.complete(Boolean.TRUE);
-                     }
+-                    }
 -                    net.minecraft.server.MinecraftServer.LOGGER.error("Failed to teleport entity " + CraftEntity.this, throwable);
 -                    ret.completeExceptionally(throwable);
-+                );
-+                if (!success) {
-+                    ret.complete(Boolean.FALSE);
++        java.util.function.Consumer<Entity> run = (Entity nmsEntity) -> {
++            boolean success = nmsEntity.teleportAsync(
++                ((CraftWorld)locationClone.getWorld()).getHandle(),
++                new net.minecraft.world.phys.Vec3(locationClone.getX(), locationClone.getY(), locationClone.getZ()),
++                null, null, net.minecraft.world.phys.Vec3.ZERO,
++                cause == null ? TeleportCause.UNKNOWN : cause,
++                Entity.TELEPORT_FLAG_LOAD_CHUNK,
++                (Entity entityTp) -> {
++                    ret.complete(Boolean.TRUE);
                  }
 -            });
 -        });
-+            },
++            );
++            if (!success) {
++                ret.complete(Boolean.FALSE);
++            }
++        };
++        if (org.bukkit.Bukkit.isOwnedByCurrentRegion(this)) {
++            run.accept(this.getHandle());
++            return ret;
++        }
++        boolean scheduled = this.taskScheduler.schedule(
++            // success
++           run,
 +            // retired
 +            (Entity nmsEntity) -> {
 +                ret.complete(Boolean.FALSE);
