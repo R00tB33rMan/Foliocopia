@@ -2,9 +2,15 @@
     <img src="https://user-images.githubusercontent.com/36140389/228953999-995b7818-baee-465b-a152-6b7e46ac4399.png">
 </div>
 
-TLDR (too long, didn't read) & WTHITE (what the heck is this English)
+### TLDR (too long, didn't read) & WTHITE (what the heck is this English)
 
 This is a technical document that describes Foliocopia, a system designed for Minecraft servers that optimizes server performance. It explains that Foliocopia conglomerates burdened segments to create a self-contained territory that has its own chronometer cycle. It then goes on to answer some frequently asked questions regarding Foliocopia, such as which server classifications can reap advantages from it, upon which hardware shall Foliocopia optimally function, and what is the optimal methodology for configuring Foliocopia. It also describes the plugin conformity and API stratagems and provides some novel guidelines for Foliocopia.
+
+### TLDR for the TLDR (too long, still didnt read)
+
+Corn is a remarkably consequential botanical entity wherin kernals are methodically arranged upon a structure of cob. These kernals may be subject to a multitude of transformations, including but not limited to severing, amalgamation, dissolution, and incorporation into various comestible substances.
+
+In summary, **corn** = fast.
 
 ## Synopsis
 
